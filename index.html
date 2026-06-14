@@ -1,0 +1,656 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>⚽ Impostor Mundial - Multiplayer</title>
+  <script src="/socket.io/socket.io.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;800;900&display=swap" rel="stylesheet">
+  
+  <style>
+    :root {
+      --bg-dark: #0a0f1d;
+      --panel-bg: rgba(20, 27, 47, 0.7);
+      --border-color: rgba(255, 255, 255, 0.08);
+      --neon-cyan: #06b6d4;
+      --neon-magenta: #d946ef;
+      --neon-green: #10b981;
+      --neon-red: #ef4444;
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Outfit', sans-serif;
+      transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    body {
+      min-height: 100vh;
+      background: radial-gradient(circle at 50% 0%, #1e1b4b 0%, #0a0f1d 70%);
+      color: var(--text-main);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 2rem 1rem;
+      overflow-x: hidden;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 800px;
+      display: flex;
+      flex-direction: column;
+      gap: 1.5rem;
+    }
+
+    /* Glow Effects */
+    .glow-title {
+      font-size: 3rem;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      background: linear-gradient(135deg, var(--neon-cyan), var(--neon-magenta));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      text-shadow: 0 0 40px rgba(6, 182, 212, 0.2);
+      margin-bottom: 0.5rem;
+    }
+
+    /* Glassmorphic Panel */
+    .panel {
+      background: var(--panel-bg);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid var(--border-color);
+      border-radius: 24px;
+      padding: 2rem;
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+    }
+
+    /* Input & Button styling */
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+      justify-content: center;
+      margin-bottom: 1.5rem;
+    }
+
+    .input-field {
+      background: rgba(15, 23, 42, 0.6);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 0.8rem 1.2rem;
+      color: white;
+      font-size: 1rem;
+      flex: 1 1 200px;
+      max-width: 280px;
+    }
+
+    .input-field:focus {
+      outline: none;
+      border-color: var(--neon-cyan);
+      box-shadow: 0 0 15px rgba(6, 182, 212, 0.3);
+    }
+
+    .btn {
+      padding: 0.8rem 1.5rem;
+      border: none;
+      border-radius: 12px;
+      font-weight: 700;
+      font-size: 1rem;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, var(--neon-cyan), #0284c7);
+      color: #fff;
+    }
+
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 0 20px rgba(6, 182, 212, 0.5);
+    }
+
+    .btn-secondary {
+      background: linear-gradient(135deg, var(--neon-magenta), #c084fc);
+      color: #fff;
+    }
+
+    .btn-secondary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 0 20px rgba(217, 70, 239, 0.5);
+    }
+
+    /* Game State Display */
+    .turn-banner {
+      font-size: 1.5rem;
+      font-weight: 800;
+      color: #38bdf8;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      animation: pulse 2s infinite;
+    }
+
+    .timer-container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      margin: 1rem 0;
+    }
+
+    .timer {
+      font-size: 4.5rem;
+      font-weight: 900;
+      font-variant-numeric: tabular-nums;
+      background: linear-gradient(to bottom, #ffffff, #94a3b8);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      text-shadow: 0 0 20px rgba(255, 255, 255, 0.1);
+      line-height: 1;
+    }
+
+    .timer-label {
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      letter-spacing: 2px;
+      margin-top: 0.25rem;
+    }
+
+    /* Player Cards Grid */
+    .players-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: 1.2rem;
+      margin-top: 1rem;
+    }
+
+    .player-card {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      border-radius: 20px;
+      padding: 1.5rem;
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 1rem;
+    }
+
+    .player-card:hover {
+      transform: translateY(-4px);
+      border-color: rgba(255, 255, 255, 0.15);
+      background: rgba(255, 255, 255, 0.06);
+    }
+
+    .player-name {
+      font-size: 1.25rem;
+      font-weight: 700;
+    }
+
+    .suspicion-badge {
+      font-size: 0.9rem;
+      background: rgba(239, 68, 68, 0.15);
+      color: #f87171;
+      padding: 0.3rem 0.8rem;
+      border-radius: 50px;
+      font-weight: 600;
+      border: 1px solid rgba(239, 68, 68, 0.2);
+    }
+
+    .actions-row {
+      display: flex;
+      gap: 0.5rem;
+      justify-content: center;
+      margin-top: 0.5rem;
+    }
+
+    .action-btn {
+      background: rgba(255, 255, 255, 0.07);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      color: white;
+      padding: 0.5rem 0.8rem;
+      border-radius: 10px;
+      cursor: pointer;
+      font-size: 1.1rem;
+    }
+
+    .action-btn:hover {
+      background: rgba(255, 255, 255, 0.2);
+      transform: scale(1.1);
+    }
+
+    .progress-track {
+      width: 100%;
+      height: 6px;
+      background: rgba(255, 255, 255, 0.08);
+      border-radius: 10px;
+      overflow: hidden;
+      margin-top: 0.5rem;
+    }
+
+    .progress-bar {
+      height: 100%;
+      background: linear-gradient(90deg, var(--neon-cyan), var(--neon-red));
+      border-radius: 10px;
+      width: 0%;
+      transition: width 0.5s ease-out;
+    }
+
+    /* Leaderboard / Ranking */
+    .rank-section {
+      margin-top: 2rem;
+      border-top: 1px solid var(--border-color);
+      padding-top: 1.5rem;
+      text-align: left;
+    }
+
+    .rank-title {
+      font-size: 1.2rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      letter-spacing: 1px;
+      margin-bottom: 1rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .rank-list {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    .rank-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0.8rem 1.2rem;
+      background: rgba(255,255,255,0.02);
+      border-radius: 10px;
+      border: 1px solid rgba(255, 255, 255, 0.03);
+    }
+
+    .rank-position {
+      font-weight: 800;
+      color: var(--neon-cyan);
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.6; }
+    }
+  </style>
+</head>
+
+<body>
+
+  <div class="container">
+    <header style="text-align: center; margin-bottom: 1rem;">
+      <h1 class="glow-title">⚽ Impostor Mundial</h1>
+      <p style="color: var(--text-muted);">El juego multijugador definitivo de sospechas y fútbol</p>
+    </header>
+
+    <!-- Lobby Setup Panel -->
+    <div class="panel">
+      <div class="controls">
+        <input id="name" class="input-field" placeholder="Tu Apodo (ej: Messi)">
+        <input id="room" class="input-field" placeholder="Código de Sala">
+        <button class="btn btn-primary" onclick="join()">
+          <span>🔑</span> Entrar a la Sala
+        </button>
+        <button class="btn btn-secondary" onclick="start()">
+          <span>🎮</span> Iniciar Juego
+        </button>
+      </div>
+
+      <!-- Role Banner Display -->
+      <div id="role-banner" style="display: none; margin-bottom: 1.5rem;"></div>
+
+      <!-- Voting Banner Display -->
+      <div id="voting-banner" style="display: none; background: rgba(217, 70, 239, 0.15); border: 2px solid var(--neon-magenta); padding: 1rem; border-radius: 16px; margin-bottom: 1.5rem; text-align: center; box-shadow: 0 0 20px rgba(217, 70, 239, 0.25);">
+        <h2 style="color: #f472b6; font-weight: 800; font-size: 1.4rem;">🗳️ FASE DE VOTACIÓN</h2>
+        <p id="voting-instructions" style="color: var(--text-muted); margin-top: 0.4rem; font-size: 0.95rem;"></p>
+      </div>
+
+      <!-- Round Choice Panel (Nueva ronda vs Votar) -->
+      <div id="round-choice-panel" style="display: none; background: rgba(20, 27, 47, 0.9); border: 2px solid var(--neon-cyan); padding: 1.5rem; border-radius: 20px; text-align: center; box-shadow: 0 0 20px rgba(6, 182, 212, 0.25); margin: 1.5rem 0;">
+        <h2 style="color: var(--neon-cyan); font-weight: 800; font-size: 1.4rem; margin-bottom: 0.5rem;">⏱️ Ronda de Preguntas Finalizada</h2>
+        <p style="color: var(--text-muted); font-size: 0.95rem; margin-bottom: 1rem;">Todos los jugadores han hablado una vez. ¿Qué desean hacer ahora?</p>
+        <div style="display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap;">
+          <button class="btn btn-primary" onclick="requestNextRound()">⚽ Otra ronda de preguntas</button>
+          <button class="btn btn-secondary" onclick="requestVoting()">🗳️ Ir a la votación</button>
+        </div>
+      </div>
+
+      <!-- Turn & Timer Display -->
+      <div id="game-status" style="display: none; margin: 1.5rem 0;">
+        <h2 id="turn" class="turn-banner">Esperando inicio...</h2>
+        <div class="timer-container">
+          <div class="timer" id="timer">30</div>
+          <div class="timer-label">segundos restantes</div>
+        </div>
+      </div>
+
+      <!-- Active Players -->
+      <div>
+        <h3 style="text-align: left; font-size: 1.1rem; text-transform: uppercase; color: var(--text-muted); margin-bottom: 0.8rem;">Jugadores en la Sala</h3>
+        <div id="players" class="players-grid">
+          <p style="color: var(--text-muted); grid-column: 1/-1;">No hay jugadores en la sala aún. ¡Ingresa un apodo y código de sala!</p>
+        </div>
+      </div>
+
+      <!-- Leaderboard Ranking -->
+      <div id="rank-section" class="rank-section" style="display: none;">
+        <h3 class="rank-title">📊 Ranking de Sospecha</h3>
+        <div id="rank" class="rank-list"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const socket = io();
+    let roomId = "";
+    let interval = null;
+    let latestPlayers = [];
+    let voteCounts = {};
+    let isVotingEnabled = false;
+
+    function join() {
+      const name = document.getElementById("name").value.trim();
+      roomId = document.getElementById("room").value.trim();
+      if (!name || !roomId) {
+        alert("Por favor completa tu nombre y la sala.");
+        return;
+      }
+      socket.emit("joinRoom", { roomId, name });
+    }
+
+    function start() {
+      if (!roomId) {
+        alert("Primero debes entrar a una sala.");
+        return;
+      }
+      socket.emit("startGame", roomId);
+    }
+
+    function requestNextRound() {
+      if (!roomId) return;
+      socket.emit("requestNextRound", roomId);
+    }
+
+    function requestVoting() {
+      if (!roomId) return;
+      socket.emit("requestVoting", roomId);
+    }
+
+    socket.on("newTurn", (data) => {
+      document.getElementById("game-status").style.display = "block";
+      document.getElementById("turn").innerText = "Turno de: " + data.player;
+
+      let t = data.time;
+      clearInterval(interval);
+      document.getElementById("timer").innerText = t;
+
+      interval = setInterval(() => {
+        t--;
+        if (t >= 0) {
+          document.getElementById("timer").innerText = t;
+        } else {
+          clearInterval(interval);
+        }
+      }, 1000);
+    });
+
+    socket.on("roleAssigned", (data) => {
+      // Clear banners from previous rounds/games
+      document.getElementById("voting-banner").style.display = "none";
+      document.getElementById("round-choice-panel").style.display = "none";
+      isVotingEnabled = false;
+      
+      const roleBanner = document.getElementById("role-banner");
+      roleBanner.style.display = "block";
+      if (data.role === "impostor") {
+        roleBanner.innerHTML = `
+          <div style="background: rgba(239, 68, 68, 0.1); border: 2px solid var(--neon-red); padding: 1.5rem; border-radius: 20px; text-align: center; box-shadow: 0 0 25px rgba(239, 68, 68, 0.25);">
+            <div style="font-weight: 800; font-size: 0.9rem; text-transform: uppercase; color: var(--neon-red); letter-spacing: 1.5px; margin-bottom: 0.5rem;">
+              RONDA DEL JUEGO - RONDA ${data.roundNumber}
+            </div>
+            <h2 style="color: #f87171; font-weight: 900; font-size: 1.8rem; text-shadow: 0 0 10px rgba(239, 68, 68, 0.4); margin-bottom: 0.2rem;">🔴 ROL: IMPOSTOR</h2>
+            <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 1.2rem;">¡No conoces al jugador secreto! Presta atención a las preguntas y finge saber quién es.</p>
+            
+            <div style="background: rgba(0,0,0,0.3); padding: 1.2rem; border-radius: 16px; border: 1px solid rgba(255,255,255,0.05); max-width: 380px; margin: 0 auto;">
+              <h3 style="font-size: 1.1rem; font-weight: 700; color: #f87171; margin-bottom: 0.6rem;">🔍 Clave de Categoría</h3>
+              <p style="color: white; font-size: 0.95rem; margin-bottom: 0.5rem;">
+                La categoría de esta ronda es: <strong>${data.roundNumber >= 4 ? '👑 LEYENDA DEL MUNDIAL' : '⚽ JUGADOR DEL MUNDIAL ACTUAL'}</strong>
+              </p>
+              <p style="color: var(--text-muted); font-size: 0.85rem; line-height: 1.4; border-top: 1px dashed rgba(255,255,255,0.1); padding-top: 0.6rem;">
+                🎯 <strong>Tu Objetivo:</strong> Averigua quién es el jugador secreto antes de que te descubran y te expulsen por votación.
+              </p>
+            </div>
+          </div>
+        `;
+      } else {
+        roleBanner.innerHTML = `
+          <div style="background: rgba(16, 185, 129, 0.1); border: 2px solid var(--neon-green); padding: 1.5rem; border-radius: 20px; text-align: center; box-shadow: 0 0 25px rgba(16, 185, 129, 0.25);">
+            <div style="font-weight: 800; font-size: 0.9rem; text-transform: uppercase; color: var(--neon-green); letter-spacing: 1.5px; margin-bottom: 0.5rem;">
+              ${data.roundNumber >= 4 ? '👑 LEYENDA HISTÓRICA' : '⚽ JUGADOR ACTUAL'} - RONDA ${data.roundNumber}
+            </div>
+            <h2 style="color: #34d399; font-weight: 900; font-size: 1.8rem; text-shadow: 0 0 10px rgba(16, 185, 129, 0.4); margin-bottom: 0.2rem;">🟢 ROL: INOCENTE</h2>
+            <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 1.2rem;">Haz preguntas indirectas para descubrir al impostor sin revelar los detalles.</p>
+            
+            <div style="display: flex; flex-direction: column; gap: 1rem; align-items: center; background: rgba(0,0,0,0.3); padding: 1.2rem; border-radius: 16px; border: 1px solid rgba(255,255,255,0.05);">
+              <div style="width: 140px; height: 140px; border-radius: 50%; overflow: hidden; border: 3px solid var(--neon-green); box-shadow: 0 0 15px rgba(16, 185, 129, 0.4);">
+                <img src="${data.secretPlayer.image}" alt="${data.secretPlayer.name}" style="width: 100%; height: 100%; object-fit: cover;">
+              </div>
+              <div>
+                <h3 style="font-size: 1.5rem; font-weight: 800; color: white; margin-bottom: 0.4rem;">${data.secretPlayer.name}</h3>
+                <div style="display: flex; gap: 0.5rem; justify-content: center; flex-wrap: wrap; margin-bottom: 0.6rem;">
+                  <span style="background: rgba(255,255,255,0.08); padding: 0.25rem 0.6rem; border-radius: 50px; font-size: 0.8rem; font-weight: 600;">${data.secretPlayer.country}</span>
+                  <span style="background: rgba(255,255,255,0.08); padding: 0.25rem 0.6rem; border-radius: 50px; font-size: 0.8rem; font-weight: 600;">${data.secretPlayer.position}</span>
+                  <span style="background: rgba(255,255,255,0.08); padding: 0.25rem 0.6rem; border-radius: 50px; font-size: 0.8rem; font-weight: 600;">${data.secretPlayer.club}</span>
+                </div>
+                <p style="color: var(--text-muted); font-size: 0.9rem; line-height: 1.4; border-top: 1px dashed rgba(255,255,255,0.1); padding-top: 0.6rem; max-width: 320px; margin: 0 auto;">
+                  💡 <strong>Pistas:</strong> ${data.secretPlayer.details}
+                </p>
+              </div>
+            </div>
+          </div>
+        `;
+      }
+    });
+
+    socket.on("updatePlayers", (players) => {
+      latestPlayers = players;
+      renderPlayers();
+    });
+
+    socket.on("voteUpdated", (data) => {
+      voteCounts = data.voteCounts;
+      renderPlayers();
+    });
+
+    socket.on("roundEnded", (data) => {
+      document.getElementById("game-status").style.display = "none";
+      document.getElementById("round-choice-panel").style.display = "block";
+    });
+
+    socket.on("roundRestarted", () => {
+      document.getElementById("round-choice-panel").style.display = "none";
+      document.getElementById("voting-banner").style.display = "none";
+      isVotingEnabled = false;
+    });
+
+    socket.on("votingStarted", (data) => {
+      document.getElementById("round-choice-panel").style.display = "none";
+      document.getElementById("game-status").style.display = "none";
+      
+      isVotingEnabled = true;
+      const banner = document.getElementById("voting-banner");
+      banner.style.display = "block";
+      document.getElementById("voting-instructions").innerHTML = `El debate ha terminado. Comienza votando el jugador que inició a hablar: <strong style="color: white; font-size: 1.15rem; text-shadow: 0 0 5px var(--neon-magenta);">${data.startingPlayerName}</strong>.`;
+    });
+
+    socket.on("playerEjected", (data) => {
+      // Show intermediate banner
+      const roleBanner = document.getElementById("role-banner");
+      roleBanner.style.display = "block";
+      
+      const wasImp = data.wasImpostor;
+      roleBanner.innerHTML = `
+        <div style="background: rgba(20, 27, 47, 0.95); border: 2px solid ${wasImp ? 'var(--neon-green)' : 'var(--neon-red)'}; padding: 1.8rem; border-radius: 20px; text-align: center; box-shadow: 0 0 25px rgba(6, 182, 212, 0.25); margin-bottom: 1.5rem;">
+          <h2 style="color: ${wasImp ? '#34d399' : '#f87171'}; font-weight: 800; font-size: 1.6rem; text-shadow: 0 0 10px ${wasImp ? 'rgba(16,185,129,0.4)' : 'rgba(239,68,68,0.4)'};">
+            📢 RESULTADO DE VOTACIÓN
+          </h2>
+          <p style="margin-top: 0.6rem; font-size: 1.1rem; color: var(--text-main);">
+            El jugador <strong>${data.ejectedPlayer}</strong> fue expulsado.
+            <br>
+            <span style="font-weight: bold; font-size: 1.25rem; color: ${wasImp ? 'var(--neon-green)' : 'var(--neon-red)'};">
+              ${wasImp ? '¡Y era un Impostor! ⚽' : '¡Pero era Inocente! 😭'}
+            </span>
+          </p>
+          <div style="margin-top: 1.2rem; font-size: 0.95rem; color: var(--text-muted); border-top: 1px dashed rgba(255,255,255,0.1); padding-top: 0.8rem;">
+            Todavía queda(n) <strong style="color: var(--neon-magenta); font-size: 1.1rem;">${data.remainingImpostorsCount}</strong> impostor(es) libre(s). 
+            <br><br>
+            <span style="color: var(--neon-cyan); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">⚽ Iniciando una nueva ronda de preguntas para los restantes...</span>
+          </div>
+        </div>
+      `;
+
+      isVotingEnabled = false;
+      document.getElementById("voting-banner").style.display = "none";
+      document.getElementById("round-choice-panel").style.display = "none";
+    });
+
+    socket.on("gameEnded", (data) => {
+      const roleBanner = document.getElementById("role-banner");
+      roleBanner.style.display = "block";
+      
+      const impostorsList = data.impostors.join(", ");
+      const winMessage = data.winner === "innocents" 
+        ? `<h2 style="color: #34d399; font-weight: 900; font-size: 2rem; text-shadow: 0 0 15px rgba(16, 185, 129, 0.6); margin-bottom: 0.5rem;">🏆 ¡GANAN LOS INOCENTES!</h2>`
+        : `<h2 style="color: #f87171; font-weight: 900; font-size: 2rem; text-shadow: 0 0 15px rgba(239, 68, 68, 0.6); margin-bottom: 0.5rem;">🏆 ¡GANA EL IMPOSTOR!</h2>`;
+
+      roleBanner.innerHTML = `
+        <div style="background: rgba(20, 27, 47, 0.95); border: 2px solid var(--neon-cyan); padding: 2rem; border-radius: 24px; text-align: center; box-shadow: 0 0 30px rgba(6, 182, 212, 0.35); margin-bottom: 1.5rem;">
+          ${winMessage}
+          <p style="margin-top: 1rem; font-size: 1.1rem; color: var(--text-main);">
+            El jugador <strong>${data.ejectedPlayer}</strong> fue expulsado por votación.
+            <br>
+            <span style="color: ${data.wasImpostor ? 'var(--neon-green)' : 'var(--neon-red)'}; font-weight: bold; font-size: 1.25rem;">
+              ${data.wasImpostor ? '¡Y era un Impostor! ⚽' : '¡Pero era Inocente! 😭'}
+            </span>
+          </p>
+          <div style="margin-top: 1.5rem; padding-top: 1.2rem; border-top: 1px solid rgba(255,255,255,0.1);">
+            <p style="color: var(--text-muted); font-size: 0.95rem;">Los impostores eran: <strong style="color: var(--neon-magenta);">${impostorsList}</strong></p>
+          </div>
+          <button class="btn btn-primary" style="margin: 1.5rem auto 0 auto;" onclick="start()">Jugar de nuevo 🎮</button>
+        </div>
+      `;
+      
+      clearInterval(interval);
+      document.getElementById("game-status").style.display = "none";
+      document.getElementById("voting-banner").style.display = "none";
+      document.getElementById("round-choice-panel").style.display = "none";
+      isVotingEnabled = false;
+    });
+
+    function renderPlayers() {
+      if (latestPlayers.length > 0) {
+        // Find if local player is alive
+        const me = latestPlayers.find(p => p.id === socket.id);
+        const amIAlive = me ? me.alive : true;
+
+        document.getElementById("players").innerHTML = latestPlayers.map(p => {
+          const suspicionPct = Math.min(p.suspicion * 10, 100);
+          const votesForPlayer = voteCounts[p.id] || 0;
+
+          if (!p.hasOwnProperty('alive') || p.alive) {
+            // Player is ALIVE
+            return `
+              <div class="player-card">
+                <span class="player-name">${p.name}</span>
+                <div style="display: flex; gap: 0.4rem; flex-wrap: wrap; justify-content: center; margin: 0.2rem 0;">
+                  <span class="suspicion-badge">Sospecha: ${p.suspicion}</span>
+                  ${votesForPlayer > 0 ? `<span style="background: rgba(217, 70, 239, 0.2); color: #f472b6; padding: 0.3rem 0.8rem; border-radius: 50px; font-size: 0.9rem; font-weight: 600; border: 1px solid rgba(217, 70, 239, 0.4);">🗳️ Votos: ${votesForPlayer}</span>` : ''}
+                </div>
+                <div class="progress-track">
+                  <div class="progress-bar" style="width: ${suspicionPct}%"></div>
+                </div>
+                ${amIAlive ? `
+                  <div class="actions-row">
+                    <button class="action-btn" title="Confiar" onclick="react('${p.id}', 'ok')">👍</button>
+                    <button class="action-btn" title="Dudar" onclick="react('${p.id}', 'doubt')">⚠️</button>
+                    <button class="action-btn" title="Sospechoso" onclick="react('${p.id}', 'sus')">❌</button>
+                    <button class="action-btn" style="background: rgba(217, 70, 239, 0.2); border-color: rgba(217, 70, 239, 0.4);" title="Votar como Impostor" onclick="vote('${p.id}')">🗳️</button>
+                  </div>
+                ` : `
+                  <div style="font-size: 0.85rem; color: var(--text-muted); margin-top: 0.5rem; font-style: italic;">
+                    No puedes interactuar (eliminado)
+                  </div>
+                `}
+              </div>
+            `;
+          } else {
+            // Player is ELIMINATED (dead)
+            return `
+              <div class="player-card" style="opacity: 0.45; border-color: rgba(239, 68, 68, 0.3); background: rgba(239, 68, 68, 0.02);">
+                <span class="player-name" style="text-decoration: line-through; color: var(--text-muted);">${p.name}</span>
+                <div style="margin-top: 0.4rem;">
+                  <span style="background: rgba(239, 68, 68, 0.15); color: #f87171; padding: 0.3rem 0.8rem; border-radius: 50px; font-size: 0.85rem; font-weight: 700; border: 1px solid rgba(239, 68, 68, 0.35);">💀 ELIMINADO</span>
+                </div>
+              </div>
+            `;
+          }
+        }).join("");
+
+        // Show ranking (only for alive players sorted by suspicion)
+        document.getElementById("rank-section").style.display = "block";
+        const sorted = latestPlayers.filter(p => !p.hasOwnProperty('alive') || p.alive).sort((a, b) => b.suspicion - a.suspicion);
+        document.getElementById("rank").innerHTML = sorted.map((p, index) => `
+          <div class="rank-item">
+            <div>
+              <span class="rank-position">#${index + 1}</span>
+              <strong style="margin-left: 0.5rem;">${p.name}</strong>
+            </div>
+            <span class="suspicion-badge">${p.suspicion} pts</span>
+          </div>
+        `).join("");
+      }
+    }
+
+    function react(id, type) {
+      if (!roomId) return;
+      socket.emit("reaction", {
+        roomId,
+        targetId: id,
+        type
+      });
+    }
+
+    function vote(targetId) {
+      if (!roomId) return;
+      if (!isVotingEnabled) {
+        alert("⚠️ La fase de votación aún no ha comenzado. Deben finalizar la ronda de preguntas primero.");
+        return;
+      }
+      socket.emit("votePlayer", { roomId, targetId });
+    }
+  </script>
+
+</body>
+</html>
